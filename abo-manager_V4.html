@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Abo-Manager & Kündigungs-Erinnerung</title>
+    <!-- Favicon (Lucide Credit Card Design) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><rect x='5' y='9' width='22' height='14' rx='2' fill='none' stroke='white' stroke-width='2'/><line x1='5' y1='14' x2='27' y2='14' stroke='white' stroke-width='2'/></svg>">
+    <!-- iOS: Safari ignoriert das Web-App-Manifest fuer Vollbild/Statusleiste, braucht eigene Meta-Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Abo-Manager">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><rect x='5' y='9' width='22' height='14' rx='2' fill='none' stroke='white' stroke-width='2'/><line x1='5' y1='14' x2='27' y2='14' stroke='white' stroke-width='2'/></svg>">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@1"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 text-white rounded-xl shadow-md">
+                    <i data-lucide="credit-card" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none text-slate-900">Abo-Manager</h1>
+                    <span class="text-xs text-slate-500 font-medium">Übersicht & Kündigungswecker</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <!-- Hidden file input for JSON import -->
+                <input type="file" id="json-file-input" accept=".json" class="hidden" onchange="handleJSONImport(event)">
+                
+                <button onclick="openSettingsModal()" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition flex items-center justify-center" title="Einstellungen & Daten-Backup">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+                
+                <button onclick="openModal()" class="flex items-center space-x-2 text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 sm:px-4 py-2.5 rounded-xl font-medium shadow-sm transition ml-1">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Neues Abo</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+
+        <!-- KPI Cards Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <!-- Monatliche Kosten -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Monatlich gesamt</p>
+                    <p class="text-2xl font-extrabold text-slate-900 mt-1" id="kpi-monthly">0,00 €</p>
+                </div>
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i data-lucide="calendar" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Jährliche Kosten -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Jährlich hochgerechnet</p>
+                    <p class="text-2xl font-extrabold text-slate-900 mt-1" id="kpi-yearly">0,00 €</p>
+                </div>
+                <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                    <i data-lucide="trending-up" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Bisherige Gesamtkosten -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Gesamtausgaben bisher</p>
+                    <p class="text-2xl font-extrabold text-purple-700 mt-1" id="kpi-lifetime">0,00 €</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">inkl. gekündigter Abos</p>
+                </div>
+                <div class="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                    <i data-lucide="wallet" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Aktive Verträge -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Aktive Verträge</p>
+                    <div class="flex items-baseline space-x-2 mt-1">
+                        <span class="text-2xl font-extrabold text-slate-900" id="kpi-count">0</span>
+                        <span class="text-xs font-medium text-slate-500" id="kpi-categories">in 0 Kategorien</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <i data-lucide="layers" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Baldige Kündigungen -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Frist läuft bald ab</p>
+                    <p class="text-2xl font-extrabold text-amber-600 mt-1" id="kpi-alerts">0</p>
+                </div>
+                <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                    <i data-lucide="bell" class="w-6 h-6"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Banner für dringende Kündigungen -->
+        <div id="urgent-alerts-container" class="hidden mb-6"></div>
+
+        <!-- Main Content Area: Filter & Tabelle -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <!-- Table Header Controls -->
+            <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="relative w-full md:w-72">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-input" placeholder="Abo suchen..." oninput="renderApp()" class="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    <!-- Filter Kategorie -->
+                    <select id="filter-category" onchange="renderApp()" class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        <option value="ALL">Alle Kategorien</option>
+                        <!-- Options will be rendered dynamically -->
+                    </select>
+
+                    <!-- Filter Status -->
+                    <select id="filter-status" onchange="renderApp()" class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        <option value="ALL">Alle Status</option>
+                        <option value="ACTIVE">Aktiv</option>
+                        <option value="CANCELLED">Bereits gekündigt</option>
+                    </select>
+
+                    <!-- Sortierung -->
+                    <select id="sort-by" onchange="renderApp()" class="text-sm bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        <option value="urgency">Nach Kündigungsfrist</option>
+                        <option value="price-desc">Preis (Höchster zuerst)</option>
+                        <option value="price-asc">Preis (Niedrigster zuerst)</option>
+                        <option value="name">Name (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table View -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-xs uppercase font-semibold text-slate-400 border-b border-slate-100 bg-slate-50/50">
+                            <th class="py-3 px-4 sm:px-6">Abonnement</th>
+                            <th class="py-3 px-4">Kategorie</th>
+                            <th class="py-3 px-4">Kosten</th>
+                            <th class="py-3 px-4">Nächste Verlängerung</th>
+                            <th class="py-3 px-4">Späteste Kündigung</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4 text-right">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subscription-table-body" class="divide-y divide-slate-100 text-sm">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden py-12 text-center">
+                <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-between mx-auto mb-3 justify-center">
+                    <i data-lucide="inbox" class="w-8 h-8"></i>
+                </div>
+                <p class="text-slate-600 font-medium">Keine Abonnements gefunden.</p>
+                <p class="text-slate-400 text-xs mt-1">Füge ein neues Abo hinzu oder passe deine Filter an.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Abo hinzufügen / bearbeiten -->
+    <div id="sub-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden transform transition-all scale-95 duration-200 max-h-[90vh] flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-900" id="modal-title">Neues Abo hinzufügen</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="sub-form" onsubmit="saveSubscription(event)" class="p-6 space-y-4 overflow-y-auto">
+                <input type="hidden" id="sub-id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Name des Dienstes *</label>
+                    <input type="text" id="sub-name" required placeholder="z.B. Netflix, Spotify, Fitnessstudio" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kategorie</label>
+                        <select id="sub-category" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <!-- Options will be rendered dynamically -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Zahlungszyklus</label>
+                        <select id="sub-cycle" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <option value="monatlich">Monatlich</option>
+                            <option value="jährlich">Jährlich</option>
+                            <option value="quartal">Quartalsweise</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kosten (€) *</label>
+                        <input type="number" step="0.01" min="0" id="sub-price" required placeholder="9.99" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kündigungsfrist (Tage)</label>
+                        <input type="number" id="sub-notice-days" min="0" value="30" placeholder="30" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        <span class="text-[11px] text-slate-400">Vor Verlängerung</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Vertragsbeginn *</label>
+                        <input type="date" id="sub-start-date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nächstes Verlängerungsdatum *</label>
+                        <input type="date" id="sub-next-date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Status</label>
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="radio" name="sub-status" value="ACTIVE" checked class="text-indigo-600 focus:ring-indigo-500">
+                            <span>Aktiv</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="radio" name="sub-status" value="CANCELLED" class="text-indigo-600 focus:ring-indigo-500">
+                            <span>Bereits gekündigt</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Wo wurde das Abo abgeschlossen? (Plattform / Store)</label>
+                    <input type="text" id="sub-platform" list="platform-options" placeholder="z.B. Google Play Store, Apple App Store, Website" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    <datalist id="platform-options">
+                        <option value="Direkt auf Website"></option>
+                        <option value="Google Play Store"></option>
+                        <option value="Apple App Store"></option>
+                        <option value="Amazon"></option>
+                        <option value="PayPal / Drittanbieter"></option>
+                    </datalist>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Vertragsnummer / Notizen</label>
+                    <textarea id="sub-notes" rows="2" placeholder="Vertragsnummer, Kundennummer oder Bemerkungen..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"></textarea>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Kündigungsschreiben-Generator -->
+    <div id="cancellation-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 overflow-hidden transform transition-all scale-95 duration-200 flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="file-text" class="w-5 h-5 text-indigo-600"></i>
+                    <h3 class="text-lg font-bold text-slate-900">Muster-Kündigungsschreiben</h3>
+                </div>
+                <button onclick="closeCancellationModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex items-start space-x-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <i data-lucide="info" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                    <p class="text-xs text-amber-800 leading-relaxed">
+                        <strong>Wichtig:</strong> Dies ist nur eine unverbindliche Textvorlage – kein versandfertiges Dokument. Kopiere den Text und füge ihn selbst in eine E-Mail oder ein Dokument (z.&nbsp;B. Word/PDF zum Ausdrucken) ein. Ergänze dabei deinen Namen, deine Adresse und unterschreibe ggf. vor dem Versand.
+                    </p>
+                </div>
+                <textarea id="cancellation-text" rows="10" readonly class="w-full p-4 border border-slate-200 rounded-xl text-xs font-mono bg-slate-50 text-slate-700 focus:outline-none resize-none"></textarea>
+                <div class="flex justify-between items-center pt-2">
+                    <span id="copy-feedback" class="text-xs text-emerald-600 font-medium hidden">✓ In Zwischenablage kopiert!</span>
+                    <div class="flex space-x-2 ml-auto">
+                        <button onclick="closeCancellationModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Schließen</button>
+                        <button onclick="copyCancellationText()" class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition flex items-center space-x-2 shadow-sm">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span>Text kopieren</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Einstellungen & Backup -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden transform transition-all scale-95 duration-200 flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-indigo-600"></i>
+                    <h3 class="text-lg font-bold text-slate-900">Einstellungen & Backup</h3>
+                </div>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+                <!-- Datenschutz & Speicherung (dauerhafter Hinweis) -->
+                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="mt-0.5 text-indigo-600">
+                            <i data-lucide="shield-check" class="w-5 h-5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-bold text-slate-900">Datenschutz & Speicherung</h4>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed">Alle Daten werden ausschließlich lokal in diesem Browser gespeichert – kein Server, kein Konto, keine Cloud. Das schützt deine Privatsphäre, bedeutet aber auch: ohne eigenes Backup gehen deine Abos bei Gerätewechsel, Browserwechsel oder gelöschten Browserdaten verloren.</p>
+                            <button onclick="openOnboardingModal()" class="text-xs text-indigo-700 hover:text-indigo-800 font-semibold mt-2 underline">Erklärung noch einmal ansehen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hinweis zur Funktionsweise der Kündigungs-Erinnerung -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="mt-0.5 text-slate-500">
+                            <i data-lucide="bell" class="w-5 h-5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-bold text-slate-900">So funktioniert die Kündigungs-Erinnerung</h4>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed">Die Anzeige auf dem Dashboard ist immer korrekt, sobald du die App öffnest. Sie kann sich aber nicht von selbst melden, wenn die Seite geschlossen ist – eine technische Grenze von Web-Apps ohne eigenen Server. Tipp: Füge die App über "Zum Startbildschirm hinzufügen" als Icon hinzu, damit ein kurzer Blick möglichst einfach fällt.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auto Backup Section -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="mt-0.5 text-indigo-600">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-bold text-slate-900">Automatisches Backup</h4>
+                            <p class="text-xs text-slate-500 mt-1 mb-3">Aktiviere diese Funktion, um regelmäßig eine Backup-Datei (JSON) in deinen Download-Ordner herunterzuladen.</p>
+                            
+                            <label class="flex items-center space-x-2 mb-3 cursor-pointer">
+                                <input type="checkbox" id="setting-auto-backup" onchange="saveSettings()" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                <span class="text-sm font-medium text-slate-700">Auto-Backup (Download) aktivieren</span>
+                            </label>
+                            
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-slate-600">Intervall:</span>
+                                <select id="setting-backup-interval" onchange="saveSettings()" class="text-sm bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                                    <option value="7">Wöchentlich (7 Tage)</option>
+                                    <option value="14">Zweiwöchentlich (14 Tage)</option>
+                                    <option value="30">Monatlich (30 Tage)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Backup Section -->
+                <div>
+                    <h4 class="text-sm font-bold text-slate-900 mb-3">Manuelles Backup (JSON-Format)</h4>
+                    <p class="text-xs text-slate-500 mb-3">Sichere deine Daten als JSON-Datei ab, um sie später bei einem Gerätewechsel oder Datenverlust wiederherzustellen.</p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button onclick="exportJSON(false)" class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                            <i data-lucide="cloud-download" class="w-4 h-4"></i>
+                            <span>Backup erstellen</span>
+                        </button>
+                        <button onclick="document.getElementById('json-file-input').click()" class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">
+                            <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+                            <span>Wiederherstellen</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Custom Categories Section -->
+                <div class="pt-2 border-t border-slate-100">
+                    <h4 class="text-sm font-bold text-slate-900 mb-3">Kategorien verwalten</h4>
+                    <p class="text-xs text-slate-500 mb-3">Füge eigene Kategorien hinzu (z.B. "Versicherungen", "Miete"), um deine Ausgaben noch besser zu sortieren.</p>
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="new-category-name" placeholder="Neue Kategorie..." class="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" onkeydown="if(event.key === 'Enter'){ addCustomCategory(); event.preventDefault(); }">
+                        <button onclick="addCustomCategory()" class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm">Hinzufügen</button>
+                    </div>
+                    <ul id="custom-category-list" class="space-y-2 mt-2 max-h-40 overflow-y-auto">
+                        <!-- Dynamically filled -->
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-slate-100 flex justify-end">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm">Fertig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Onboarding / Privacy-first Erklärung -->
+    <div id="onboarding-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden transform transition-all scale-95 duration-200 flex flex-col">
+            <div class="px-6 pt-5 flex justify-end">
+                <button onclick="closeOnboardingModal(true)" class="text-xs text-slate-400 hover:text-slate-600 font-medium">Überspringen</button>
+            </div>
+
+            <div class="px-8 pb-2">
+                <!-- Step 1 -->
+                <div class="onboarding-step text-center" data-step="1">
+                    <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="shield-check" class="w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Willkommen beim Abo-Manager 👋</h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">Diese App ist bewusst <strong>privacy-first</strong> gebaut: kein Server, kein Nutzerkonto, keine Cloud. Alles, was du einträgst, bleibt ausschließlich in diesem Browser auf diesem Gerät.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="onboarding-step hidden text-center" data-step="2">
+                    <div class="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="triangle-alert" class="w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Das bedeutet auch...</h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">Wechselst du Browser oder Gerät, sind deine Abos in diesem Browser nicht mehr da – aber dank des automatischen Backups (standardmäßig aktiv) nicht wirklich verloren: Eine Sicherungsdatei landet regelmäßig in deinem Download-Ordner, mit der du alles wiederherstellen kannst. Nur eine automatische Synchronisation zwischen Geräten gibt es nicht.</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="onboarding-step hidden text-center" data-step="3">
+                    <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="cloud-download" class="w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Du hast die Kontrolle</h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">Sichere deine Daten jederzeit über <strong>Einstellungen → Backup</strong> als Datei, oder aktiviere automatische Backups, damit nichts verloren geht.</p>
+                    <button onclick="finishOnboardingAndOpenSettings()" class="mt-3 text-xs text-indigo-600 hover:text-indigo-700 font-medium underline">Direkt Backup-Einstellungen öffnen →</button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-1.5 py-4">
+                <span class="onboarding-dot w-1.5 h-1.5 rounded-full bg-indigo-600" data-dot="1"></span>
+                <span class="onboarding-dot w-1.5 h-1.5 rounded-full bg-slate-200" data-dot="2"></span>
+                <span class="onboarding-dot w-1.5 h-1.5 rounded-full bg-slate-200" data-dot="3"></span>
+            </div>
+
+            <div class="px-6 pb-6 flex items-center gap-3">
+                <button id="onboarding-back-btn" onclick="onboardingPrev()" class="hidden px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">Zurück</button>
+                <button id="onboarding-next-btn" onclick="onboardingNext()" class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm">Weiter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Application Script -->
+    <script>
+        // Initials data
+        const initialSubscriptions = [
+            {
+                id: '1',
+                name: 'Netflix',
+                category: 'Streaming & TV',
+                price: 13.99,
+                cycle: 'monatlich',
+                startDate: '2023-01-01',
+                nextDate: getFutureDateStr(12),
+                noticeDays: 30,
+                status: 'ACTIVE',
+                platform: 'Direkt auf Website',
+                notes: 'Standard HD Abo'
+            },
+            {
+                id: '2',
+                name: 'Spotify Premium',
+                category: 'Musik',
+                price: 10.99,
+                cycle: 'monatlich',
+                startDate: '2022-06-01',
+                nextDate: getFutureDateStr(45),
+                noticeDays: 14,
+                status: 'ACTIVE',
+                platform: 'Google Play Store',
+                notes: 'Einzelkonto'
+            },
+            {
+                id: '3',
+                name: 'McFit Fitnessstudio',
+                category: 'Fitness & Gesundheit',
+                price: 24.90,
+                cycle: 'monatlich',
+                startDate: '2024-01-01',
+                nextDate: getFutureDateStr(8),
+                noticeDays: 7,
+                status: 'ACTIVE',
+                platform: 'Vor Ort / Website',
+                notes: 'Mitglieder-Nr: 9876543'
+            },
+            {
+                id: '4',
+                name: 'Sky Ticket (alt)',
+                category: 'Streaming & TV',
+                price: 19.99,
+                cycle: 'monatlich',
+                startDate: '2022-01-01',
+                nextDate: '2023-12-31',
+                noticeDays: 30,
+                status: 'CANCELLED',
+                platform: 'Direkt auf Website',
+                notes: 'Ehemaliges Sport-Paket'
+            }
+        ];
+
+        let subscriptions = JSON.parse(localStorage.getItem('my_subscriptions')) || initialSubscriptions;
+        
+        // Categories
+        const standardCategories = ['Streaming & TV', 'Musik & Audio', 'Software & Cloud', 'Fitness & Gesundheit', 'Mobilfunk & Internet', 'Zeitungen & Lesen', 'Sonstiges'];
+        let customCategories = JSON.parse(localStorage.getItem('abo_custom_categories')) || ['Versicherungen'];
+        
+        // App Settings
+        const defaultSettings = { autoBackup: true, intervalDays: 7, lastBackupDate: '' };
+        let appSettings = JSON.parse(localStorage.getItem('abo_settings')) || defaultSettings;
+
+        // Date helper
+        function getFutureDateStr(daysInFuture) {
+            const d = new Date();
+            d.setDate(d.getDate() + daysInFuture);
+            return d.toISOString().split('T')[0];
+        }
+
+        function calculateCancellationDeadline(nextDateStr, noticeDays) {
+            const nextDate = new Date(nextDateStr);
+            const deadline = new Date(nextDate);
+            deadline.setDate(deadline.getDate() - parseInt(noticeDays || 0));
+            return deadline;
+        }
+
+        // Addiert Monate auf ein Datum, ohne bei kurzen Monaten (z.B. 31. Januar -> Februar) zu "überlaufen".
+        function addMonthsClamped(date, monthsToAdd) {
+            const d = new Date(date);
+            const originalDay = d.getDate();
+            d.setDate(1); // verhindert Monatsüberlauf beim Wechsel
+            d.setMonth(d.getMonth() + monthsToAdd);
+            const lastDayOfTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            d.setDate(Math.min(originalDay, lastDayOfTargetMonth));
+            return d;
+        }
+
+        function addCycle(dateStr, cycle) {
+            const d = new Date(dateStr);
+            if (cycle === 'jährlich') return addMonthsClamped(d, 12);
+            if (cycle === 'quartal') return addMonthsClamped(d, 3);
+            return addMonthsClamped(d, 1); // monatlich (Standard)
+        }
+
+        // Schaltet das Verlängerungsdatum aktiver Abos automatisch weiter, wenn es bereits verstrichen ist
+        // (z.B. weil die App länger nicht geöffnet wurde). Gekündigte Abos bleiben unangetastet.
+        function advanceOverdueDates() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let advancedCount = 0;
+
+            subscriptions.forEach(sub => {
+                if (sub.status !== 'ACTIVE' || !sub.nextDate) return;
+
+                let nextDate = new Date(sub.nextDate);
+                let deadline = calculateCancellationDeadline(sub.nextDate, sub.noticeDays);
+                let advanced = false;
+                let safetyCounter = 0; // Schutz vor Endlosschleifen bei kaputten Daten
+
+                // Nicht nur bis zum Verlängerungsdatum vorrücken, sondern bis zur
+                // KÜNDIGUNGSFRIST, die noch einhaltbar ist. Sonst kann bei langen Fristen
+                // (z.B. 30 Tage bei monatlichem Zyklus) die neu berechnete Frist sofort
+                // wieder in der Vergangenheit liegen, ohne dass je eine "läuft bald ab"-
+                // Warnung sichtbar wurde.
+                while (deadline < today && safetyCounter < 120) {
+                    nextDate = addCycle(nextDate, sub.cycle);
+                    deadline = calculateCancellationDeadline(nextDate.toISOString().split('T')[0], sub.noticeDays);
+                    advanced = true;
+                    safetyCounter++;
+                }
+
+                if (advanced) {
+                    sub.nextDate = nextDate.toISOString().split('T')[0];
+                    advancedCount++;
+                }
+            });
+
+            if (advancedCount > 0) {
+                saveToStorage();
+                showToast(`${advancedCount} Abo${advancedCount === 1 ? '' : 's'} auf den nächsten Zyklus aktualisiert.`, 'info');
+            }
+        }
+
+        function calculateLifetimeCost(sub) {
+            if (!sub.startDate) return 0;
+            
+            const start = new Date(sub.startDate);
+            let end = new Date();
+            
+            // Wenn das Abo gekündigt ist und ein Enddatum/Verlängerungsdatum hat, wird bis dahin gerechnet
+            if (sub.status === 'CANCELLED' && sub.nextDate) {
+                const targetEnd = new Date(sub.nextDate);
+                if (targetEnd < end) {
+                    end = targetEnd;
+                }
+            }
+
+            if (end < start) return 0;
+
+            const price = parseFloat(sub.price) || 0;
+            const yearDiff = end.getFullYear() - start.getFullYear();
+            const monthDiff = end.getMonth() - start.getMonth();
+            let totalMonths = yearDiff * 12 + monthDiff;
+
+            if (end.getDate() >= start.getDate()) {
+                totalMonths += 1;
+            } else {
+                totalMonths = Math.max(1, totalMonths);
+            }
+
+            if (sub.cycle === 'monatlich') {
+                return totalMonths * price;
+            } else if (sub.cycle === 'quartal') {
+                const quarters = Math.max(1, Math.ceil(totalMonths / 3));
+                return quarters * price;
+            } else if (sub.cycle === 'jährlich') {
+                const years = Math.max(1, Math.ceil(totalMonths / 12));
+                return years * price;
+            }
+            return price;
+        }
+
+        function getDaysUntil(targetDate) {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const target = new Date(targetDate);
+            target.setHours(0,0,0,0);
+            const diffTime = target - today;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+            if (!match) return '-'; // unerwartetes Format wird nie ungeprüft zurückgegeben
+            const [, year, month, day] = match;
+            return `${day}.${month}.${year}`;
+        }
+
+        function formatCurrency(val) {
+            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val);
+        }
+
+        // Main Render Logic
+        function renderApp() {
+            const tbody = document.getElementById('subscription-table-body');
+            const searchVal = document.getElementById('search-input').value.toLowerCase();
+            const catVal = document.getElementById('filter-category').value;
+            const statusVal = document.getElementById('filter-status').value;
+            const sortVal = document.getElementById('sort-by').value;
+
+            // Filter logic
+            let filtered = subscriptions.filter(sub => {
+                const matchesSearch = sub.name.toLowerCase().includes(searchVal) || (sub.notes && sub.notes.toLowerCase().includes(searchVal));
+                const matchesCat = catVal === 'ALL' || sub.category === catVal;
+                const matchesStatus = statusVal === 'ALL' || sub.status === statusVal;
+                return matchesSearch && matchesCat && matchesStatus;
+            });
+
+            // Sorting logic
+            filtered.sort((a, b) => {
+                const deadlineA = calculateCancellationDeadline(a.nextDate, a.noticeDays);
+                const deadlineB = calculateCancellationDeadline(b.nextDate, b.noticeDays);
+                
+                if (sortVal === 'urgency') {
+                    if (a.status === 'CANCELLED') return 1;
+                    if (b.status === 'CANCELLED') return -1;
+                    return deadlineA - deadlineB;
+                } else if (sortVal === 'price-desc') {
+                    return getMonthlyPrice(b) - getMonthlyPrice(a);
+                } else if (sortVal === 'price-asc') {
+                    return getMonthlyPrice(a) - getMonthlyPrice(b);
+                } else if (sortVal === 'name') {
+                    return a.name.localeCompare(b.name);
+                }
+            });
+
+            // Update KPI mit der gefilterten Liste
+            updateKPIs(filtered);
+
+            // Render Table
+            tbody.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+            }
+
+            filtered.forEach(sub => {
+                const deadline = calculateCancellationDeadline(sub.nextDate, sub.noticeDays);
+                const daysToDeadline = getDaysUntil(deadline);
+                const isCancelled = sub.status === 'CANCELLED';
+                const lifetimeCost = calculateLifetimeCost(sub);
+
+                // Status badges & Deadline warning colors
+                let deadlineBadge = '';
+                if (isCancelled) {
+                    deadlineBadge = `<span class="text-slate-400 text-xs">Abo bereits gekündigt</span>`;
+                } else if (daysToDeadline < 0) {
+                    deadlineBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-rose-100 text-rose-800">Frist verpasst (${Math.abs(daysToDeadline)} Tage her)</span>`;
+                } else if (daysToDeadline <= 7) {
+                    deadlineBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-rose-500 text-white animate-pulse">Dringend: Noch ${daysToDeadline} Tage!</span>`;
+                } else if (daysToDeadline <= 14) {
+                    deadlineBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800">Noch ${daysToDeadline} Tage</span>`;
+                } else {
+                    deadlineBadge = `<span class="text-slate-600 text-xs">Noch ${daysToDeadline} Tage Zeit</span>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition-colors';
+                tr.innerHTML = `
+                    <td class="py-4 px-4 sm:px-6">
+                        <div class="font-semibold text-slate-900">${escapeHtml(sub.name)}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Seit ${formatDate(sub.startDate || sub.nextDate)}</div>
+                        ${sub.platform ? `<div class="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-1"><i data-lucide="store" class="w-3 h-3"></i> ${escapeHtml(sub.platform)}</div>` : ''}
+                        ${sub.notes ? `<div class="text-xs text-slate-400 font-mono mt-0.5 truncate max-w-xs">${escapeHtml(sub.notes)}</div>` : ''}
+                    </td>
+                    <td class="py-4 px-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            ${escapeHtml(sub.category)}
+                        </span>
+                    </td>
+                    <td class="py-4 px-4">
+                        <div class="font-bold text-slate-900">${formatCurrency(sub.price)}</div>
+                        <div class="text-xs text-slate-400">${escapeHtml(sub.cycle)}</div>
+                        <div class="text-[11px] text-purple-700 font-semibold mt-1" title="Bisherige Gesamtkosten">Bisher: ${formatCurrency(lifetimeCost)}</div>
+                    </td>
+                    <td class="py-4 px-4 text-slate-600">
+                        ${formatDate(sub.nextDate)}
+                    </td>
+                    <td class="py-4 px-4">
+                        <div class="font-medium text-slate-700">${formatDate(deadline.toISOString().split('T')[0])}</div>
+                        <div class="mt-0.5">${deadlineBadge}</div>
+                    </td>
+                    <td class="py-4 px-4">
+                        ${isCancelled ? 
+                            `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Gekündigt</span>` : 
+                            `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Aktiv</span>`
+                        }
+                    </td>
+                    <td class="py-4 px-4 text-right">
+                        <div class="flex items-center justify-end space-x-2">
+                            <button onclick="openCancellationModal('${sub.id}')" title="Kündigungsschreiben erstellen" class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="editSubscription('${sub.id}')" title="Bearbeiten" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteSubscription('${sub.id}')" title="Löschen" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Re-render Lucide icons
+            lucide.createIcons();
+        }
+
+        function getMonthlyPrice(sub) {
+            if (sub.status === 'CANCELLED') return 0;
+            const price = parseFloat(sub.price) || 0;
+            if (sub.cycle === 'jährlich') return price / 12;
+            if (sub.cycle === 'quartal') return price / 3;
+            return price;
+        }
+
+        // Nutzt nun standardmäßig die übergebene Liste (gefiltert) oder alle Abos
+        function updateKPIs(displaySubs = subscriptions) {
+            let monthlyTotal = 0;
+            let lifetimeTotal = 0;
+            let alertCount = 0;
+            let activeCount = 0;
+            const urgentAlerts = [];
+            const activeCategories = new Set();
+
+            displaySubs.forEach(sub => {
+                // Gesamtkosten bisher (inklusive gekündigter Abos)
+                lifetimeTotal += calculateLifetimeCost(sub);
+
+                if (sub.status === 'ACTIVE') {
+                    activeCount++;
+                    monthlyTotal += getMonthlyPrice(sub);
+                    if (sub.category) {
+                        activeCategories.add(sub.category);
+                    }
+
+                    const deadline = calculateCancellationDeadline(sub.nextDate, sub.noticeDays);
+                    const days = getDaysUntil(deadline);
+
+                    if (days >= 0 && days <= 14) {
+                        alertCount++;
+                        urgentAlerts.push({ ...sub, days });
+                    }
+                }
+            });
+
+            document.getElementById('kpi-monthly').innerText = formatCurrency(monthlyTotal);
+            document.getElementById('kpi-yearly').innerText = formatCurrency(monthlyTotal * 12);
+            document.getElementById('kpi-lifetime').innerText = formatCurrency(lifetimeTotal);
+            document.getElementById('kpi-count').innerText = activeCount;
+            
+            const catCount = activeCategories.size;
+            document.getElementById('kpi-categories').innerText = `in ${catCount} ${catCount === 1 ? 'Kategorie' : 'Kategorien'}`;
+            
+            document.getElementById('kpi-alerts').innerText = alertCount;
+
+            // Render Urgent Alert Banner if any
+            const container = document.getElementById('urgent-alerts-container');
+            if (urgentAlerts.length > 0) {
+                container.classList.remove('hidden');
+                container.innerHTML = `
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start space-x-3">
+                        <div class="p-2 bg-amber-500 text-white rounded-xl mt-0.5">
+                            <i data-lucide="bell-ring" class="w-5 h-5"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-bold text-amber-900">Kündigungs-Erinnerung!</h4>
+                            <p class="text-xs text-amber-700 mt-0.5">
+                                Bei ${urgentAlerts.length} ${urgentAlerts.length === 1 ? 'Abo' : 'Abos'} läuft in Kürze die Kündigungsfrist ab: 
+                                <strong>${urgentAlerts.map(a => `${escapeHtml(a.name)} (noch ${a.days} Tage)`).join(', ')}</strong>.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // Storage Save
+        function saveToStorage() {
+            localStorage.setItem('my_subscriptions', JSON.stringify(subscriptions));
+        }
+
+        // Ermöglicht "Zum Startbildschirm hinzufügen" (Android: automatischer Install-Button,
+        // iOS: manuell über Teilen-Menü). Bewusst schlank gehalten – nur Installierbarkeit,
+        // keine Benachrichtigungs-Logik (die wurde entfernt, weil sie im Browser nicht
+        // zuverlässig funktioniert, siehe Einstellungen-Hinweis).
+        function initPWAInstallability() {
+            const manifest = {
+                name: "Abo-Manager & Kündigungswecker",
+                short_name: "Abo-Manager",
+                start_url: "./",
+                display: "standalone",
+                background_color: "#f8fafc",
+                theme_color: "#4f46e5",
+                icons: [{
+                    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><rect x='5' y='9' width='22' height='14' rx='2' fill='none' stroke='white' stroke-width='2'/><line x1='5' y1='14' x2='27' y2='14' stroke='white' stroke-width='2'/></svg>",
+                    sizes: "192x192 512x512",
+                    type: "image/svg+xml"
+                }]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            manifestLink.href = URL.createObjectURL(manifestBlob);
+            document.head.appendChild(manifestLink);
+
+            // Chrome verlangt für den automatischen Install-Button zusätzlich einen
+            // registrierten Service Worker mit Fetch-Handler – hier bewusst ein reiner
+            // Pass-through ohne eigene Cache-Strategie oder Notification-Code.
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', () => self.skipWaiting());
+                    self.addEventListener('activate', () => self.clients.claim());
+                    self.addEventListener('fetch', () => {}); // Pass-through, kein Caching
+                `;
+                const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                navigator.serviceWorker.register(URL.createObjectURL(swBlob))
+                    .catch(err => console.log('Service Worker Registrierung fehlgeschlagen:', err));
+            }
+        }
+
+        // Modal Handlers
+        function openModal(subToEdit = null) {
+            const modal = document.getElementById('sub-modal');
+            const form = document.getElementById('sub-form');
+            form.reset();
+
+            if (subToEdit) {
+                document.getElementById('modal-title').innerText = 'Abo bearbeiten';
+                document.getElementById('sub-id').value = subToEdit.id;
+                document.getElementById('sub-name').value = subToEdit.name;
+                document.getElementById('sub-category').value = subToEdit.category;
+                document.getElementById('sub-cycle').value = subToEdit.cycle;
+                document.getElementById('sub-price').value = subToEdit.price;
+                document.getElementById('sub-notice-days').value = subToEdit.noticeDays;
+                document.getElementById('sub-start-date').value = subToEdit.startDate || getFutureDateStr(-365);
+                document.getElementById('sub-next-date').value = subToEdit.nextDate;
+                document.getElementById('sub-platform').value = subToEdit.platform || '';
+                document.getElementById('sub-notes').value = subToEdit.notes || '';
+                
+                const statusRadios = document.getElementsByName('sub-status');
+                for (let r of statusRadios) {
+                    if (r.value === subToEdit.status) r.checked = true;
+                }
+            } else {
+                document.getElementById('modal-title').innerText = 'Neues Abo hinzufügen';
+                document.getElementById('sub-id').value = '';
+                document.getElementById('sub-start-date').value = getFutureDateStr(0);
+                document.getElementById('sub-next-date').value = getFutureDateStr(30);
+                document.getElementById('sub-platform').value = '';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.children[0].classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('sub-modal');
+            modal.classList.add('opacity-0');
+            modal.children[0].classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function saveSubscription(e) {
+            e.preventDefault();
+            const id = document.getElementById('sub-id').value;
+            const name = document.getElementById('sub-name').value;
+            const category = document.getElementById('sub-category').value;
+            const cycle = document.getElementById('sub-cycle').value;
+            const price = parseFloat(document.getElementById('sub-price').value);
+            const noticeDays = parseInt(document.getElementById('sub-notice-days').value) || 0;
+            const startDate = document.getElementById('sub-start-date').value;
+            const nextDate = document.getElementById('sub-next-date').value;
+            const platform = document.getElementById('sub-platform').value;
+            const notes = document.getElementById('sub-notes').value;
+            const status = document.querySelector('input[name="sub-status"]:checked').value;
+
+            if (id) {
+                // Update
+                const index = subscriptions.findIndex(s => s.id === id);
+                if (index !== -1) {
+                    subscriptions[index] = { id, name, category, cycle, price, noticeDays, startDate, nextDate, platform, notes, status };
+                }
+            } else {
+                // Create
+                const newSub = {
+                    id: Date.now().toString(),
+                    name, category, cycle, price, noticeDays, startDate, nextDate, platform, notes, status
+                };
+                subscriptions.push(newSub);
+            }
+
+            saveToStorage();
+            closeModal();
+            renderApp();
+        }
+
+        function editSubscription(id) {
+            const sub = subscriptions.find(s => s.id === id);
+            if (sub) openModal(sub);
+        }
+
+        function deleteSubscription(id) {
+            if (confirm('Möchtest du dieses Abonnement wirklich löschen?')) {
+                subscriptions = subscriptions.filter(s => s.id !== id);
+                saveToStorage();
+                renderApp();
+            }
+        }
+
+        // Cancellation Letter Modal logic
+        function openCancellationModal(id) {
+            const sub = subscriptions.find(s => s.id === id);
+            if (!sub) return;
+
+            const todayStr = formatDate(new Date().toISOString().split('T')[0]);
+            const deadline = calculateCancellationDeadline(sub.nextDate, sub.noticeDays);
+            const deadlineStr = formatDate(deadline.toISOString().split('T')[0]);
+
+            const template = 
+`Betreff: Ordentliche Kündigung meines Abonnements: ${sub.name}
+${sub.notes ? `Kundennummer / Vertrags-ID: ${sub.notes}\n` : ''}
+Datum: ${todayStr}
+
+Sehr geehrte Damen und Herren,
+
+hiermit kündige ich mein oben genanntes Abonnement für den Dienst "${sub.name}" fristgerecht zum nächstmöglichen Zeitpunkt (spätestens zum ${formatDate(sub.nextDate)}).
+
+Bitte senden Sie mir eine schriftliche Bestätigung dieser Kündigung unter Angabe des genauen Beendigungszeitpunkts zu.
+
+Eine Ihnen erteilte Einzugsermächtigung bzw. SEPA-Lastschriftmandat widerrufe ich hiermit zum Vertragsende.
+
+Mit freundlichen Grüßen,
+[Dein Name]
+[Deine Adresse]`;
+
+            document.getElementById('cancellation-text').value = template;
+            document.getElementById('copy-feedback').classList.add('hidden');
+
+            const modal = document.getElementById('cancellation-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.children[0].classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeCancellationModal() {
+            const modal = document.getElementById('cancellation-modal');
+            modal.classList.add('opacity-0');
+            modal.children[0].classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function copyCancellationText() {
+            const textarea = document.getElementById('cancellation-text');
+            textarea.select();
+            document.execCommand('copy');
+            
+            const feedback = document.getElementById('copy-feedback');
+            feedback.classList.remove('hidden');
+            setTimeout(() => {
+                feedback.classList.add('hidden');
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // --- NEW FEATURES: TOAST, SETTINGS, JSON BACKUP ---
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `transform transition-all duration-300 translate-y-10 opacity-0 bg-white border-l-4 ${type === 'success' ? 'border-emerald-500' : 'border-indigo-500'} shadow-lg rounded-xl p-4 flex items-center space-x-3 pointer-events-auto`;
+            toast.innerHTML = `
+                <div class="${type === 'success' ? 'text-emerald-500' : 'text-indigo-500'}">
+                    <i data-lucide="${type === 'success' ? 'circle-check' : 'info'}" class="w-5 h-5"></i>
+                </div>
+                <p class="text-sm text-slate-700 font-medium">${message}</p>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons({root: toast});
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            });
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function openSettingsModal() {
+            document.getElementById('setting-auto-backup').checked = appSettings.autoBackup;
+            document.getElementById('setting-backup-interval').value = appSettings.intervalDays;
+            
+            renderCustomCategorySettings();
+            
+            const modal = document.getElementById('settings-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.children[0].classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.add('opacity-0');
+            modal.children[0].classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function saveSettings() {
+            appSettings.autoBackup = document.getElementById('setting-auto-backup').checked;
+            appSettings.intervalDays = parseInt(document.getElementById('setting-backup-interval').value);
+            localStorage.setItem('abo_settings', JSON.stringify(appSettings));
+        }
+
+        // --- CATEGORY MANAGEMENT ---
+        
+        function renderCategoryDropdowns() {
+            const allCategories = [...standardCategories, ...customCategories];
+            
+            const filterSelect = document.getElementById('filter-category');
+            if (filterSelect) {
+                const currentFilterVal = filterSelect.value;
+                filterSelect.innerHTML = '<option value="ALL">Alle Kategorien</option>';
+                allCategories.forEach(cat => {
+                    filterSelect.innerHTML += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+                });
+                if (currentFilterVal && (allCategories.includes(currentFilterVal) || currentFilterVal === 'ALL')) {
+                    filterSelect.value = currentFilterVal;
+                }
+            }
+
+            const formSelect = document.getElementById('sub-category');
+            if (formSelect) {
+                const currentFormVal = formSelect.value;
+                formSelect.innerHTML = '';
+                allCategories.forEach(cat => {
+                    formSelect.innerHTML += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+                });
+                if (currentFormVal && allCategories.includes(currentFormVal)) {
+                    formSelect.value = currentFormVal;
+                }
+            }
+        }
+
+        function renderCustomCategorySettings() {
+            const list = document.getElementById('custom-category-list');
+            if(!list) return;
+            list.innerHTML = '';
+            if (customCategories.length === 0) {
+                list.innerHTML = '<li class="text-xs text-slate-400 p-2 text-center bg-slate-50 rounded-lg">Keine eigenen Kategorien angelegt.</li>';
+                return;
+            }
+            customCategories.forEach((cat, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700';
+                li.innerHTML = `
+                    <span class="font-medium">${escapeHtml(cat)}</span>
+                    <button onclick="deleteCustomCategory(${index})" class="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-md transition" title="Löschen">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+            lucide.createIcons({root: list});
+        }
+
+        function addCustomCategory() {
+            const input = document.getElementById('new-category-name');
+            const val = input.value.trim();
+            if (!val) return;
+            if (standardCategories.includes(val) || customCategories.includes(val)) {
+                showToast("Kategorie existiert bereits!", "info");
+                return;
+            }
+            customCategories.push(val);
+            localStorage.setItem('abo_custom_categories', JSON.stringify(customCategories));
+            input.value = '';
+            renderCustomCategorySettings();
+            renderCategoryDropdowns();
+            renderApp(); // Aktualisiert die Ansicht, falls sich Filter geändert haben
+            showToast("Kategorie hinzugefügt!");
+        }
+
+        function deleteCustomCategory(index) {
+            const cat = customCategories[index];
+            const inUse = subscriptions.some(s => s.category === cat);
+            if (inUse) {
+                if (!confirm(`Die Kategorie "${cat}" wird noch von einem oder mehreren Abos verwendet.\n\nMöchtest du sie trotzdem löschen? (Die bestehenden Abos behalten den Textnamen)`)) {
+                    return;
+                }
+            }
+            customCategories.splice(index, 1);
+            localStorage.setItem('abo_custom_categories', JSON.stringify(customCategories));
+            renderCustomCategorySettings();
+            renderCategoryDropdowns();
+            
+            // Filter zurücksetzen, falls die gelöschte Kategorie gerade ausgewählt war
+            const filterSelect = document.getElementById('filter-category');
+            if (filterSelect.value === cat) {
+                filterSelect.value = 'ALL';
+                renderApp();
+            }
+            showToast("Kategorie entfernt!");
+        }
+
+        function exportJSON(isAuto = false) {
+            if(subscriptions.length === 0) return;
+            const dataStr = JSON.stringify(subscriptions, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const prefix = isAuto ? "Auto_Backup_" : "Backup_";
+            a.download = `Abo_${prefix}${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            if (!isAuto) {
+                showToast("Backup-Datei erfolgreich erstellt!");
+            }
+        }
+
+        function handleJSONImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        if (confirm(`Möchtest du ${importedData.length} Abonnements wiederherstellen?\n\nDeine aktuellen Daten werden überschrieben.`)) {
+                            subscriptions = importedData;
+                            saveToStorage();
+                            renderApp();
+                            showToast("Backup erfolgreich wiederhergestellt!");
+                            closeSettingsModal();
+                        }
+                    } else {
+                        alert("Ungültiges Backup-Format.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Fehler beim Lesen der JSON-Datei. Ist die Datei beschädigt?');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function checkAutoBackup() {
+            if (!appSettings.autoBackup || subscriptions.length === 0) return;
+            
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            
+            if (!appSettings.lastBackupDate) {
+                // Erstes Backup sofort ausführen, um einen Startpunkt zu haben
+                exportJSON(true);
+                appSettings.lastBackupDate = todayStr;
+                localStorage.setItem('abo_settings', JSON.stringify(appSettings));
+                showToast("Dein erstes automatisches Backup wurde heruntergeladen.", "info");
+                return;
+            }
+            
+            const lastDate = new Date(appSettings.lastBackupDate);
+            const diffTime = Math.abs(now - lastDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays >= appSettings.intervalDays) {
+                exportJSON(true);
+                appSettings.lastBackupDate = todayStr;
+                localStorage.setItem('abo_settings', JSON.stringify(appSettings));
+                showToast(`Dein automatisches ${appSettings.intervalDays}-Tage Backup wurde heruntergeladen.`, "info");
+            }
+        }
+
+        // --- ONBOARDING (Privacy-first Sensibilisierung) ---
+
+        const ONBOARDING_STEPS = 3;
+        let onboardingCurrentStep = 1;
+
+        function checkOnboarding() {
+            if (!localStorage.getItem('abo_onboarding_seen')) {
+                openOnboardingModal();
+            }
+        }
+
+        function openOnboardingModal() {
+            onboardingCurrentStep = 1;
+            updateOnboardingStep();
+            const modal = document.getElementById('onboarding-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.children[0].classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeOnboardingModal(markSeen = false) {
+            const modal = document.getElementById('onboarding-modal');
+            modal.classList.add('opacity-0');
+            modal.children[0].classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+            if (markSeen) {
+                localStorage.setItem('abo_onboarding_seen', 'true');
+            }
+        }
+
+        function updateOnboardingStep() {
+            document.querySelectorAll('.onboarding-step').forEach(el => {
+                el.classList.toggle('hidden', parseInt(el.dataset.step) !== onboardingCurrentStep);
+            });
+            document.querySelectorAll('.onboarding-dot').forEach(dot => {
+                const isActive = parseInt(dot.dataset.dot) === onboardingCurrentStep;
+                dot.classList.toggle('bg-indigo-600', isActive);
+                dot.classList.toggle('bg-slate-200', !isActive);
+            });
+
+            document.getElementById('onboarding-back-btn').classList.toggle('hidden', onboardingCurrentStep === 1);
+            document.getElementById('onboarding-next-btn').innerText =
+                onboardingCurrentStep === ONBOARDING_STEPS ? "Verstanden, los geht's!" : 'Weiter';
+
+            lucide.createIcons();
+        }
+
+        function onboardingNext() {
+            if (onboardingCurrentStep < ONBOARDING_STEPS) {
+                onboardingCurrentStep++;
+                updateOnboardingStep();
+            } else {
+                closeOnboardingModal(true);
+            }
+        }
+
+        function onboardingPrev() {
+            if (onboardingCurrentStep > 1) {
+                onboardingCurrentStep--;
+                updateOnboardingStep();
+            }
+        }
+
+        function finishOnboardingAndOpenSettings() {
+            closeOnboardingModal(true);
+            setTimeout(() => openSettingsModal(), 220);
+        }
+
+        // Initial setup on window load
+        window.onload = function() {
+            renderCategoryDropdowns();
+            initPWAInstallability();
+            advanceOverdueDates();
+            renderApp();
+            checkOnboarding();
+            // Kurze Verzögerung für das Auto-Backup, damit es den Ladevorgang (UX) nicht stört
+            setTimeout(checkAutoBackup, 2000);
+        };
+    </script>
+</body>
+</html>
